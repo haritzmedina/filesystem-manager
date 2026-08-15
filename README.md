@@ -157,6 +157,29 @@ codesign --force --deep -s - dist/filesysman-gui.app
 xattr -cr dist/filesysman-gui.app
 ```
 
+## Publicacion automatica (GitHub Actions)
+
+El flujo `.github/workflows/release.yml` compila y publica paquetes para
+**Windows, Linux y macOS** al pulsar un tag:
+
+```powershell
+git tag v1.0.1
+git push origin v1.0.1
+```
+
+La accion crea una release en GitHub con:
+
+| Plataforma | Artefactos |
+| --- | --- |
+| Windows | `Filesysman_Setup.exe` (instalador Inno), `filesysman-gui.exe` (portable), `filesysman-cli-win64.zip` |
+| Linux | `filesysman-gui-linux64` (portable) y CLI en `filesysman-cli-linux64.tar.gz` |
+| macOS (Intel/ARM) | `filesysman-gui-macos-x64.zip` y `...-macos-arm64.zip` (app bundle) + CLI comprimido |
+
+- Cada SO se compila en su propio runner (PyInstaller no compila de forma cruzada).
+- En Linux, el binario de la GUI requiere las librerias Qt del sistema
+  (`libegl1 libgl1 libxkbcommon0 libxcb-cursor0`, etc.).
+- En macOS el app bundle se firma ad-hoc (`codesign -s -`).
+
 ## Instalador Windows (Inno Setup)
 
 Genera `Filesysman_Setup.exe`, que instala en `%ProgramFiles%\FilesystemManager`,

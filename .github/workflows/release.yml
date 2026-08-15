@@ -1,0 +1,125 @@
+name: Release
+
+# Al pulsar un tag v* (ej. `git tag v1.0.1 && git push origin v1.0.1`):
+# compila binarios en Windows, Linux y macOS y publica una release de GitHub
+# con los paquetes instalables y portables.
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build (${{ matrix.platform }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: win64
+            artifact: filesysman-win64
+          - os: ubuntu-latest
+            platform: linux64
+            artifact: filesysman-linux64
+          - os: macos-latest
+            platform: macos-arm64
+            artifact: filesysman-macos-arm64
+          - os: macos-13
+            platform: macos-x64
+            artifact: filesysman-macos-x64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Install Qt runtime libraries (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libegl1 libgl1 libxkbcommon0 libxcb-cursor0 libxcb-icccm4 \
+            libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 \
+            libxcb-shape0 libxcb-xinerama0 libxcb-xkb1
+
+      - name: Build binaries (Windows/Linux)
+        if: runner.os != 'macOS'
+        run: python build.py
+
+      - name: Build binaries (macOS, .app bundle)
+        if: runner.os == 'macOS'
+        run: |
+          python build.py --skip-gui
+          python -m PyInstaller main.py \
+            --name filesysman-gui --windowed --onedir \
+            --paths . --distpath dist --workpath build --specpath build --noconfirm
+          codesign --force --deep -s - dist/filesysman-gui.app
+
+      - name: Build Windows installer (Inno Setup)
+        if: runner.os == 'Windows'
+        run: |
+          choco install innosetup --no-progress -y
+          iscc installer_win.iss
+
+      - name: Package artifacts (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Compress-Archive -Path dist/filesysman -DestinationPath dist/filesysman-cli-win64.zip
+          New-Item -ItemType Directory -Path release -Force | Out-Null
+          Move-Item dist/Filesysman_Setup.exe release/
+          Move-Item dist/filesysman-gui.exe release/
+          Move-Item dist/filesysman-cli-win64.zip release/
+
+      - name: Package artifacts (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p release
+          tar -czf dist/filesysman-cli-linux64.tar.gz -C dist filesysman
+          mv dist/filesysman-gui release/filesysman-gui-linux64
+          mv dist/filesysman-cli-linux64.tar.gz release/
+          chmod +x release/filesysman-gui-linux64
+
+      - name: Package artifacts (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p release
+          ditto -c -k --sequesterRsrc --keepParent \
+            dist/filesysman-gui.app release/filesysman-gui-${{ matrix.platform }}.zip
+          tar -czf release/filesysman-cli-${{ matrix.platform }}.tar.gz -C dist filesysman
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: release/*
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: List packaged artifacts
+        run: ls -la release-assets
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          files: release-assets/*
+          generate_release_notes: true
+          fail_on_unmatched_files: true

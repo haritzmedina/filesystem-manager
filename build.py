@@ -65,7 +65,12 @@ def build(
     ]
     common = []
     if icon:
-        common += ["--icon", str(icon)]
+        if sys.platform == "darwin":
+            icns = icon.with_suffix(".icns")
+            if icns.is_file():
+                common += ["--icon", str(icns)]
+        else:
+            common += ["--icon", str(icon)]
 
     suffix = _exe_suffix()
     console_opts = [
