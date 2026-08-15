@@ -26,11 +26,8 @@ jobs:
             platform: linux64
             artifact: filesysman-linux64
           - os: macos-latest
-            platform: macos-arm64
-            artifact: filesysman-macos-arm64
-          - os: macos-13
-            platform: macos-x64
-            artifact: filesysman-macos-x64
+            platform: macos-universal
+            artifact: filesysman-macos
 
     steps:
       - uses: actions/checkout@v4
@@ -55,12 +52,12 @@ jobs:
         if: runner.os != 'macOS'
         run: python build.py
 
-      - name: Build binaries (macOS, .app bundle)
+      - name: Build binaries (macOS, universal .app bundle)
         if: runner.os == 'macOS'
         run: |
-          python build.py --skip-gui
+          python build.py --skip-gui --universal2
           python -m PyInstaller main.py \
-            --name filesysman-gui --windowed --onedir \
+            --name filesysman-gui --windowed --onedir --target-architecture universal2 \
             --paths . --distpath dist --workpath build --specpath build --noconfirm
           codesign --force --deep -s - dist/filesysman-gui.app
 
@@ -94,8 +91,8 @@ jobs:
         run: |
           mkdir -p release
           ditto -c -k --sequesterRsrc --keepParent \
-            dist/filesysman-gui.app release/filesysman-gui-${{ matrix.platform }}.zip
-          tar -czf release/filesysman-cli-${{ matrix.platform }}.tar.gz -C dist filesysman
+            dist/filesysman-gui.app release/filesysman-gui-macos.zip
+          tar -czf release/filesysman-cli-macos.tar.gz -C dist filesysman
 
       - uses: actions/upload-artifact@v4
         with:

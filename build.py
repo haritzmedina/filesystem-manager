@@ -8,10 +8,12 @@ Uso:
   python build.py                 # consola (onedir) + GUI (onefile)
   python build.py --onefile       # consola tambien como un solo archivo
   python build.py --skip-gui      # solo la version de consola
+  python build.py --universal2    # macOS: binarios universales Intel+Apple Silicon
   python build.py --clean         # limpia build/ y dist/ antes de compilar
   python build.py --name filesysman --icon assets/app.ico
 
-Si existe assets/app.ico se usa como icono por defecto.
+Si existe assets/app.ico se usa como icono por defecto (en macOS solo si
+existe assets/app.icns).
 """
 
 from __future__ import annotations
@@ -46,6 +48,7 @@ def build(
     build_gui: bool,
     icon: Path | None,
     clean: bool,
+    universal2: bool = False,
 ) -> None:
     if clean:
         for folder in (ROOT / "build", ROOT / "dist"):
@@ -71,6 +74,10 @@ def build(
                 common += ["--icon", str(icns)]
         else:
             common += ["--icon", str(icon)]
+    if universal2:
+        if sys.platform != "darwin":
+            raise SystemExit("--universal2 solo es valido en macOS.")
+        common += ["--target-architecture", "universal2"]
 
     suffix = _exe_suffix()
     console_opts = [
@@ -130,6 +137,11 @@ def _parser() -> argparse.ArgumentParser:
         help="No compilar la version grafica sin consola",
     )
     parser.add_argument(
+        "--universal2",
+        action="store_true",
+        help="macOS: compilar binarios universales (Intel + Apple Silicon)",
+    )
+    parser.add_argument(
         "--icon",
         type=Path,
         default=None,
@@ -148,7 +160,7 @@ def main() -> None:
     default_icon = ROOT / "assets" / "app.ico"
     icon = args.icon or (default_icon if default_icon.is_file() else None)
     console_mode = "onefile" if args.onefile else "onedir"
-    build(args.name, console_mode, not args.skip_gui, icon, args.clean)
+    build(args.name, console_mode, not args.skip_gui, icon, args.clean, args.universal2)
 
 
 if __name__ == "__main__":
