@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# QA
+.pytest_cache/
+
+# Compilacion PyInstaller
+build/
+dist/
+
+# Entornos
+.env

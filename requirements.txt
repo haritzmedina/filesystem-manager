@@ -1,0 +1,10 @@
+# Tiempo de ejecucion: la CLI usa solo la biblioteca estandar; la GUI usa PySide6 (Qt).
+
+# GUI moderna (Qt6)
+PySide6>=6.6
+
+# DevOps: compilacion de binarios con PyInstaller
+pyinstaller>=6.0
+
+# QA: pruebas unitarias
+pytest>=8.0
